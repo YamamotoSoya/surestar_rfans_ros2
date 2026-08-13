@@ -1,6 +1,6 @@
 
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/point_cloud2_iterator.h>
 #include <stdio.h>
 #include <string.h>
@@ -10,9 +10,9 @@
 
 FILE *g_dump_file;
 
-void processPoints(const sensor_msgs::PointCloud2ConstPtr& msg)
+void processPoints(const sensor_msgs::msg::PointCloud2ConstPtr& msg)
 {
-    for (sensor_msgs::PointCloud2ConstIterator<float> it(*msg, "x"); it != it.end(); ++it) {
+    for (sensor_msgs::msg::PointCloud2ConstIterator<float> it(*msg, "x"); it != it.end(); ++it) {
         const float x = it[0]; // x
         const float y = it[1]; // y
         const float z = it[2]; // z

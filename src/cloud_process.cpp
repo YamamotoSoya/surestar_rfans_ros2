@@ -1,10 +1,10 @@
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include "ssFrameLib.h"
 const int SIZE_RFANS_DATA = sizeof(RFANS_XYZ_S);
 ros::Publisher pub;
-sensor_msgs::PointCloud2 msg_pub;
-void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
+sensor_msgs::msg::PointCloud2 msg_pub;
+void cloudCallback(const sensor_msgs::msg::PointCloud2ConstPtr& msg)
 {
     msg_pub.header = msg->header;
     msg_pub.width = msg->width;
@@ -48,7 +48,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
 //    {
 //       msg_pub.data.resize(msg->data.size());
 //       msg_pub.fields.resize(5);
-//       for(sensor_msgs::PointCloud2ConstIterator<float> it(*msg, "x"); it != it.end(); ++it)
+//       for(sensor_msgs::msg::PointCloud2ConstIterator<float> it(*msg, "x"); it != it.end(); ++it)
 //       {
 //           const int r = *((const int*)(&it[4]));
 //           const float x = it[0];
@@ -64,7 +64,7 @@ void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& msg)
 
 }
 
-void InitPointcloud2(sensor_msgs::PointCloud2 &initCloud) {
+void InitPointcloud2(sensor_msgs::msg::PointCloud2 &initCloud) {
     static const size_t DataSize = sizeof(rfans_driver::RfansPacket().data) / sizeof(SCDRFANS_BLOCK_S ) * sizeof(RFANS_XYZ_S) *RFANS_LASER_COUNT;
     initCloud.data.clear();
     initCloud.data.resize( DataSize); //point data
@@ -117,7 +117,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
     InitPointcloud2(msg_pub);
     ros::Subscriber sub = nh.subscribe("/rfans_driver/rfans_points",1024,&cloudCallback);
-    pub = nh.advertise<sensor_msgs::PointCloud2>("rfans_points",10);
+    pub = nh.advertise<sensor_msgs::msg::PointCloud2>("rfans_points",10);
     ros::spin();
     return 0;
 }

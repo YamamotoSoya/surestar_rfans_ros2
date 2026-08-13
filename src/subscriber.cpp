@@ -4,7 +4,7 @@
  *  $Id$
  */
 
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include <stdio.h>
 #include <time.h>
 
@@ -26,7 +26,7 @@ static void RFansPacketReceived(rfans_driver::RfansPacket pkt) {
     s_fileAPI.outputFile(outBlocks,outXyzBlocks) ;
 }
 
-static void RFansPointCloudReceived(sensor_msgs::PointCloud2 pointCloud) {
+static void RFansPointCloudReceived(sensor_msgs::msg::PointCloud2 pointCloud) {
   if(saveFile)
     s_fileAPI.outputFile(pointCloud) ;
 }
@@ -58,7 +58,7 @@ int main ( int argc , char ** argv )
   srv.request.cmd = atoll(argv[1]);
   srv.request.speed = atoll(argv[2]);
   if (client.call(srv)) {
-    ROS_INFO("status: %ld", (long int)srv.response.status);
+    RCLCPP_INFO(rclcpp::get_logger("rfans_driver"), "status: %ld", (long int)srv.response.status);
   } else {
     ROS_ERROR("Failed to call service RfansCommand,Please");
   }

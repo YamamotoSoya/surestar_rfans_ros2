@@ -2,7 +2,7 @@
 #define CALCULATION_H
 #include "ssFrameLib.h"
 #include <vector>
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 using namespace std;
 /*
 * this header file contain the device id and calculate the point coordinate

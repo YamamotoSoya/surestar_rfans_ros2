@@ -1,10 +1,9 @@
 #ifndef _BUFFER_DECODER_H_
 #define _BUFFER_DECODER_H_
 //#include <pcl_ros/point_cloud.h>
-#include <sensor_msgs/PointCloud2.h>
-#include "rfans_driver/RfansPacket.h"
-#include "ssFrameLib.h"
-#include <ros/ros.h>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include "ssFrameLib.h"   // claude: provides rfans_driver::RfansPacket alias (ROS2 port)
+#include <rclcpp/rclcpp.hpp>
 #include "calculation.h"
 typedef enum {
     eReady,
@@ -61,9 +60,16 @@ public:
     int getUdpCount() { return m_udpCount;}
     int getUdpSize() {return m_udpSize;}
 
-    static int Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::PointCloud2 &outCloud , ros::Publisher &rosOut, DEVICE_TYPE_E deviceType);
-    static void InitPointcloud2(sensor_msgs::PointCloud2 &initCloud) ;
-    static void ResetPointCloud2(sensor_msgs::PointCloud2 &initCloud) ;
+    // claude: ROS2 port — publisher is a typed SharedPtr now
+    static int Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::msg::PointCloud2 &outCloud , rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr rosOut, DEVICE_TYPE_E deviceType);
+    static void InitPointcloud2(sensor_msgs::msg::PointCloud2 &initCloud) ;
+    // claude: ROS2 has no ambient parameter server — the node pushes these in
+    //         before InitPointcloud2 (was ros::param::get inside InitPointcloud2).
+    static void SetFrameId(const std::string &frame_id);
+    static void SetDeviceIp(const std::string &ip);
+    static void SetDataLevel(int level);
+    static void SetDeviceModel(const std::string &model);
+    static void ResetPointCloud2(sensor_msgs::msg::PointCloud2 &initCloud) ;
 
     static void SetAngleDuration(float value);
     static void setSaveXYZ(bool save);

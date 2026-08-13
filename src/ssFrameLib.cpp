@@ -6,7 +6,7 @@
 
 #include "ssFrameLib.h"
 #include "string.h"
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include "ioapi.h"
 
 int swapchar( unsigned char * _data, int size_ ) {
@@ -205,7 +205,7 @@ int searchBlock(unsigned char *data, int size,int &outflag, SCDRFANS_BLOCK_S *ou
         tmpSize--;
       } else {
         outflag = 1;
-        return tmpReadIndex; // ROS_INFO_STREAM( "searchBlock");
+        return tmpReadIndex; // RCLCPP_INFO_STREAM(rclcpp::get_logger("rfans_driver"),  "searchBlock");
       }
       break;
     default:

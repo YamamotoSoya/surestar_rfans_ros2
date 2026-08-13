@@ -10,10 +10,9 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <netinet/in.h>
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include "ssFrameLib.h"
-#include <rfans_driver/Packet.h>
 #include <pcap.h>
 class SSBufferDec;
 namespace rfans_driver
@@ -70,7 +69,6 @@ private:
   in_addr devip_;
   sockaddr_in m_devaddr;
 
-  ros::NodeHandle private_nh_;
   uint16_t m_devport_;
   uint16_t m_pcport_;
   std::string devip_str_;
@@ -106,7 +104,7 @@ public:
   int printf(char *msgStr, int size) ;
 
   int outputFile(std::vector<SCDRFANS_BLOCK_S> &pointCloud, std::vector<RFANS_XYZ_S> &outXyzBlocks, int flag=1);
-  int outputFile(sensor_msgs::PointCloud2 &initCloud, int flag=1);
+  int outputFile(sensor_msgs::msg::PointCloud2 &initCloud, int flag=1);
 private:
   FILE *s_rawFile ;
   SCDRFANS_BLOCK_S *m_blocks;
@@ -119,8 +117,9 @@ private:
 class InputPCAP
 {
 public:
-    InputPCAP(ros::NodeHandle private_nh,
-              uint16_t port = DATA_PORT_NUMBER,
+    // claude: ROS2 port — NodeHandle dropped; read_once/read_fast/repeat_delay
+    //         arrive as plain arguments (the node reads them as parameters).
+    InputPCAP(uint16_t port = DATA_PORT_NUMBER,
               double packet_rate =0.0,
               std::string filename="",
               std::string device_ip="",
@@ -133,8 +132,7 @@ public:
     void setDeviceIP( const std::string& ip );
 
 private:
-    ros::NodeHandle private_nh_;
-    ros::Rate packet_rate_;
+    double packet_rate_;   // claude: packets/sec (was ros::Rate — ROS2 port)
     uint16_t port_;
     std::string devip_str_;
     std::string filename_;

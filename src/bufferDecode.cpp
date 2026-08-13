@@ -3,7 +3,7 @@
 #include <cmath>
 #include <time.h>
 #include <stdio.h>
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include <sys/time.h>
 #include "ioapi.h"
 #include <ctime>
@@ -52,6 +52,12 @@ double max_angle;
 int ringID;
 bool use_laserSelection_;
 std::string device_type;
+// claude: ROS2 port — config pushed in by the node (was ros::param::get in InitPointcloud2)
+static std::string s_frame_id = "world";
+void SSBufferDec::SetFrameId(const std::string &frame_id) { s_frame_id = frame_id; }
+void SSBufferDec::SetDeviceIp(const std::string &ip) { ip_address = ip; }
+void SSBufferDec::SetDataLevel(int level) { data_level_ = level; }
+void SSBufferDec::SetDeviceModel(const std::string &model) { device_type = model; }
 
 inline tm stampTransform(int year_,int month_,int day_,int hour_)
 {
@@ -337,7 +343,7 @@ inline bool sortByHangle(const RFANS_XYZ_S &v1, const RFANS_XYZ_S &v2) {
     return v1.hangle < v2.hangle;
 }
 
-inline int checkFrame_sum(unsigned char flag,float mtAngle,int mtlaserId,sensor_msgs::PointCloud2 &outCloud) {
+inline int checkFrame_sum(unsigned char flag,float mtAngle,int mtlaserId,sensor_msgs::msg::PointCloud2 &outCloud) {
     int rtn = 0 ;
     static float s_angleSum = 0;
     float angleDif = 0 ;
@@ -444,7 +450,7 @@ inline int checkFrame_sum(unsigned char flag,float mtAngle,int mtlaserId,sensor_
                         findNextFrameZero = true;
                     }
                 }
-//                ROS_INFO("gs_pointsPerRound: %d",gs_pointsPerRound);
+//                RCLCPP_INFO(rclcpp::get_logger("rfans_driver"), "gs_pointsPerRound: %d",gs_pointsPerRound);
                 if (s_tempData[i].size() <= gs_pointsPerRound) {
                     for(int index=s_tempData[i].size(); index<gs_pointsPerRound;index++)
                     {
@@ -503,13 +509,13 @@ inline int checkFrame_sum(unsigned char flag,float mtAngle,int mtlaserId,sensor_
             time_c.tm_sec = (int)(time/1000000-time_c.tm_min*60);
             //timegm or mktime,timegm
             time_t  timethen = timegm(&time_c);
-            ros::Time rosTime;
+            builtin_interfaces::msg::Time rosTime;   // claude: was ros::Time (ROS2 port)
             rosTime.sec = (unsigned int)timethen;
-            rosTime.nsec = (unsigned int)(time%1000000)*1000;
+            rosTime.nanosec = (unsigned int)(time%1000000)*1000;
             outCloud.header.stamp = rosTime;
         }
         else{
-            outCloud.header.stamp = ros::Time::now();
+            outCloud.header.stamp = rclcpp::Clock().now();
         }
         outCloud.width = pointTotalCnt;
         outCloud.data.resize( outCloud.point_step*outCloud.width);
@@ -532,7 +538,7 @@ inline int checkFrame_sum(unsigned char flag,float mtAngle,int mtlaserId,sensor_
 }
 
 
-inline int checkOneRound(float mtAngle,int mtlaserId,sensor_msgs::PointCloud2 &outCloud) {
+inline int checkOneRound(float mtAngle,int mtlaserId,sensor_msgs::msg::PointCloud2 &outCloud) {
   int rtn = 0 ;
 //  point_count++;
   static float s_angleSum = 0;
@@ -566,13 +572,13 @@ inline int checkOneRound(float mtAngle,int mtlaserId,sensor_msgs::PointCloud2 &o
         time_c.tm_min = (int)(time/60000000);
         time_c.tm_sec = (int)(time/1000000-time_c.tm_min*60);
         time_t  timethen = timegm(&time_c);
-        ros::Time rosTime;
+        builtin_interfaces::msg::Time rosTime;   // claude: was ros::Time (ROS2 port)
         rosTime.sec = (unsigned int)timethen;
-        rosTime.nsec = (unsigned int)(time%1000000)*1000;
+        rosTime.nanosec = (unsigned int)(time%1000000)*1000;
     }
     else
     {
-        outCloud.header.stamp = ros::Time::now();
+        outCloud.header.stamp = rclcpp::Clock().now();
     }
       outCloud.width = s_lineCount;
       outCloud.data.resize( outCloud.point_step*outCloud.width);
@@ -584,7 +590,7 @@ inline int checkOneRound(float mtAngle,int mtlaserId,sensor_msgs::PointCloud2 &o
   }
 //  if(point_count >= 64000)
 //  {
-//      outCloud.header.stamp = ros::Time::now();
+//      outCloud.header.stamp = rclcpp::Clock().now();
 //      outCloud.width = s_lineCount;
 //      outCloud.data.resize( outCloud.point_step*outCloud.width);
 //      outCloud.row_step = outCloud.data.size();
@@ -597,7 +603,7 @@ inline int checkOneRound(float mtAngle,int mtlaserId,sensor_msgs::PointCloud2 &o
 }
 
 
-inline int checkFrame(float mtAngle,int mtlaserId,sensor_msgs::PointCloud2 &outCloud) {
+inline int checkFrame(float mtAngle,int mtlaserId,sensor_msgs::msg::PointCloud2 &outCloud) {
     int rtn = 0 ;
     float angleDif = 0 ;
     if( mtlaserId !=0 ) return rtn ;
@@ -694,7 +700,7 @@ inline int calCFansMirrorIndex(int angle_fix,int laserID,float &range){
 
 
 //process level 0 data.
-inline int processPacketOri(PACKET_ORI_S* packet,sensor_msgs::PointCloud2 &outCloud)
+inline int processPacketOri(PACKET_ORI_S* packet,sensor_msgs::msg::PointCloud2 &outCloud)
 {
     int rtn =0;
     RFANS_XYZ_S tmpXyz;
@@ -846,7 +852,7 @@ inline int processPacketOri(PACKET_ORI_S* packet,sensor_msgs::PointCloud2 &outCl
 }
 
 //process level 2 data
-inline int processPacketUser(PACKET_USER_S* packet, sensor_msgs::PointCloud2 &outCloud)
+inline int processPacketUser(PACKET_USER_S* packet, sensor_msgs::msg::PointCloud2 &outCloud)
 {
     int rtn =0;
     RFANS_XYZ_S tmpXyz1;
@@ -1157,7 +1163,7 @@ inline int processPacketUser(PACKET_USER_S* packet, sensor_msgs::PointCloud2 &ou
 
 // process level 3 data
 
-//inline int processPacketUserSimple(PACKET_USER_SIMPLE_S* packet, sensor_msgs::PointCloud2 &outCloud)
+//inline int processPacketUserSimple(PACKET_USER_SIMPLE_S* packet, sensor_msgs::msg::PointCloud2 &outCloud)
 //{
 //    int rtn =0;
 //    RFANS_XYZ_S tmpXyz;
@@ -1200,7 +1206,7 @@ inline int processPacketUser(PACKET_USER_S* packet, sensor_msgs::PointCloud2 &ou
 //}
 
 
-inline int processPacketUserSimple(PACKET_USER_SIMPLE_S* packet, sensor_msgs::PointCloud2 &outCloud)
+inline int processPacketUserSimple(PACKET_USER_SIMPLE_S* packet, sensor_msgs::msg::PointCloud2 &outCloud)
 {
     int rtn =0;
     RFANS_XYZ_S tmpXyz;
@@ -1212,7 +1218,7 @@ inline int processPacketUserSimple(PACKET_USER_SIMPLE_S* packet, sensor_msgs::Po
     unsigned char DEVICE_ID = packet->gmReservedA;
     uint8_t echo_flag = 1;
     gpsTime = packet->gps_timestamp;
-    ROS_DEBUG("The flag is %04x ",packet->groups[0].flag);
+    RCLCPP_DEBUG(rclcpp::get_logger("rfans_driver"), "The flag is %04x ",packet->groups[0].flag);
     for(int i =0; i < GROUP_NUM_USER_SIMPLE; i++)
     {
         GROUP_USER_SIMPLE_S* mtBlock = &packet->groups[i];
@@ -1479,7 +1485,7 @@ inline int processPacketUserSimple(PACKET_USER_SIMPLE_S* packet, sensor_msgs::Po
 }
 
 
-inline int processFrameV6G(RFans_UDP32FRAMEV6G_S *mtFrame, sensor_msgs::PointCloud2 &outCloud)
+inline int processFrameV6G(RFans_UDP32FRAMEV6G_S *mtFrame, sensor_msgs::msg::PointCloud2 &outCloud)
 {
     int rtn = 0;
     bool tmp_isFull = false;
@@ -1572,7 +1578,7 @@ inline int processFrameV6G(RFans_UDP32FRAMEV6G_S *mtFrame, sensor_msgs::PointClo
                 index = (mtFrame->dataBlock[j].flag & 0x0F00)>>8;
             }
             int mirrorID = (mtFrame->dataBlock[j].flag&0x0F00 )>>10;//get each points' mirror id.
-            //ROS_INFO_STREAM("the Mirror id is "<< mirrorID);
+            //RCLCPP_INFO_STREAM(rclcpp::get_logger("rfans_driver"), "the Mirror id is "<< mirrorID);
             //unsigned char mirrorID = (mtFrame->dataBlock[j].flag &0x000F)>>2;
             unsigned char device_Type = mtFrame->gmReservedA;
             switch (device_Type) {
@@ -1689,10 +1695,10 @@ inline int processFrameV6G(RFans_UDP32FRAMEV6G_S *mtFrame, sensor_msgs::PointClo
             }
 
             /*  if (s_device_type == DEVICE_TYPE_CFANS) {
-          //ROS_INFO("========parse point by cfans v6g========");
+          //RCLCPP_INFO(rclcpp::get_logger("rfans_driver"), "========parse point by cfans v6g========");
           calcCFansCoor(tmpRange,tmpAngle,index,i,tmpXyz) ;
       } else if (s_device_type == DEVICE_TYPE_RFANS){// rfans
-          //ROS_INFO("========parse point by rfans v6g========");
+          //RCLCPP_INFO(rclcpp::get_logger("rfans_driver"), "========parse point by rfans v6g========");
           calcXyz(mtFrame->gmReservedA, tmpRange, tmpAngle, tmpXyz);
       }*/
 
@@ -1744,7 +1750,7 @@ inline int processFrameV6G(RFans_UDP32FRAMEV6G_S *mtFrame, sensor_msgs::PointClo
 const unsigned char SYNC_RELEASE_BLOCKV32_CFANS128_0_15 = 0x9D;
 const unsigned char SYNC_RELEASE_BLOCKV32_CFANS128_16_31 = 0x9E;
 
-inline int processFrameV5( RFans_UDPFRAMEV5_S *mtFrame, sensor_msgs::PointCloud2 &outCloud)
+inline int processFrameV5( RFans_UDPFRAMEV5_S *mtFrame, sensor_msgs::msg::PointCloud2 &outCloud)
 {
     int rtn = 0;
     RFANS_XYZ_S tmpXyz ;
@@ -1879,7 +1885,7 @@ int SSBufferDec::writeBuffer(unsigned char *data, int size)
     m_decBuf.bufSize += size;
     m_decBuf.wrHead += size ;
 
-    //  ROS_INFO_STREAM( "writeBuffer"
+    //  RCLCPP_INFO_STREAM(rclcpp::get_logger("rfans_driver"),  "writeBuffer"
     //                  << " bufSize " << m_decBuf.bufSize
     //                  << " wrHead "<< m_decBuf.wrHead
     //                  << " rdTail " <<m_decBuf.rdTail);
@@ -1892,8 +1898,8 @@ int SSBufferDec::readPacket(rfans_driver::RfansPacket &pkt)
     if(m_decBuf.bufSize > 0 ) {
         pkt.data.resize(m_decBuf.bufSize);
         memcpy(&pkt.data[0], m_decBuf.buffer,  m_decBuf.bufSize);
-        pkt.udpCount = m_udpCount;
-        pkt.udpSize = m_udpSize;
+        pkt.udp_count = m_udpCount;
+        pkt.udp_size = m_udpSize;
         reset();
         rtn = 1;
     }
@@ -1938,7 +1944,7 @@ void SSBufferDec::reset()
     m_udpCount = 0 ;
 }
 
-int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::PointCloud2 &outCloud , ros::Publisher &rosOut, DEVICE_TYPE_E deviceType)
+int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::msg::PointCloud2 &outCloud , rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr rosOut, DEVICE_TYPE_E deviceType)   // claude: publisher SharedPtr (ROS2 port)
 {
     int rtn =0, updateflag = 0;
     s_device_type = deviceType;
@@ -1950,19 +1956,19 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::PointC
     PACKET_USER_SIMPLE_S* tmpFrameUSERSimple;
     unsigned short* flag;
     float firstPointAngle = 0.0;
-//    if(UDP_PACKET_SIZE_DATA_LEVEL_ORI != inPack.udpSize)
+//    if(UDP_PACKET_SIZE_DATA_LEVEL_ORI != inPack.udp_size)
 //    {
-//        ROS_WARN("ERROR");
+//        RCLCPP_WARN(rclcpp::get_logger("rfans_driver"), "ERROR");
 //    }
-    if(UDP_PACKET_SIZE_DATA_LEVEL_ORI == inPack.udpSize)
+    if(UDP_PACKET_SIZE_DATA_LEVEL_ORI == inPack.udp_size)
     {
-//        ROS_INFO("Level 0 data");
-        for(int i =0;  i<inPack.udpCount;i++)
+//        RCLCPP_INFO(rclcpp::get_logger("rfans_driver"), "Level 0 data");
+        for(int i =0;  i<inPack.udp_count;i++)
         {
-//            flag = (unsigned short*)(&inPack.data[0]+i*inPack.udpSize);
+//            flag = (unsigned short*)(&inPack.data[0]+i*inPack.udp_size);
             if(sizeof(PACKET_ORI_S)!=1406)
-            ROS_WARN_STREAM("The size is: "<<sizeof(PACKET_ORI_S));
-            tmpFrameORI = (PACKET_ORI_S*)(&inPack.data[0]+i*inPack.udpSize);
+            RCLCPP_WARN_STREAM(rclcpp::get_logger("rfans_driver"), "The size is: "<<sizeof(PACKET_ORI_S));
+            tmpFrameORI = (PACKET_ORI_S*)(&inPack.data[0]+i*inPack.udp_size);
 //            uint8_t data_grade, calc_grade, mirror_flag, pack_grade;
 //            data_grade = (*flag >> 14) & 0x0003;//2bit
 //            calc_grade = (*flag>> 4) & 0x03FF;//10bit
@@ -1977,7 +1983,7 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::PointC
 //                    timeval tval_begin;
 //                   gettimeofday(&tval_begin, NULL);
 //                     printf("xxs: %ld, us: %06ld\n", tval_begin.tv_sec, tval_begin.tv_usec);
-                    rosOut.publish(outCloud);
+                    rosOut->publish(outCloud);
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
 //            }
@@ -1986,11 +1992,11 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::PointC
 
     }
 
-    else if(UDP_PACKET_SIZE_V6G == inPack.udpSize)
+    else if(UDP_PACKET_SIZE_V6G == inPack.udp_size)
     {
-        for(int i=0 ; i< inPack.udpCount; i++)
+        for(int i=0 ; i< inPack.udp_count; i++)
         {
-            flag = (unsigned short*)(&inPack.data[0]+i*inPack.udpSize);
+            flag = (unsigned short*)(&inPack.data[0]+i*inPack.udp_size);
             uint8_t data_grade, calc_grade, mirror_flag, pack_grade;
             data_grade = (*flag >> 14) & 0x0003;//2bit
             calc_grade = (*flag>> 4) & 0x03FF;//10bit
@@ -1998,76 +2004,76 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::PointC
             pack_grade = *flag & 0x0003;//2bit
             if(data_level_==2)
             {
-                tmpFrameUSER =(PACKET_USER_S*)(&inPack.data[0]+i*inPack.udpSize);
+                tmpFrameUSER =(PACKET_USER_S*)(&inPack.data[0]+i*inPack.udp_size);
                 if(processPacketUser(tmpFrameUSER,outCloud))
                 {
-                    rosOut.publish(outCloud);
+                    rosOut->publish(outCloud);
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
             }
 
             else if(data_level_ ==3)
             {
-                tmpFrameUSERSimple =(PACKET_USER_SIMPLE_S*) (&inPack.data[0]+i*inPack.udpSize);
+                tmpFrameUSERSimple =(PACKET_USER_SIMPLE_S*) (&inPack.data[0]+i*inPack.udp_size);
                 if(processPacketUserSimple(tmpFrameUSERSimple,outCloud))
                 {
-                    rosOut.publish(outCloud);
+                    rosOut->publish(outCloud);
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
             }
 
             else
             {
-                tmpFrameV6 = (RFans_UDP32FRAMEV6G_S*)(&inPack.data[0] + i*inPack.udpSize);
+                tmpFrameV6 = (RFans_UDP32FRAMEV6G_S*)(&inPack.data[0] + i*inPack.udp_size);
                 firstPointAngle = tmpFrameV6->dataBlock[0].azimuthAngle*UINTCONVERT;
                 static unsigned int lastGpsTimestamp = 0;
                 bool recordPPSAngle = recordAsPPSAngel(lastGpsTimestamp, tmpFrameV6->gpsTimestamp);
                 if (recordPPSAngle) {
-                    ROS_INFO_STREAM("The device IP is: "<<ip_address<<"\n"
+                    RCLCPP_INFO_STREAM(rclcpp::get_logger("rfans_driver"), "The device IP is: "<<ip_address<<"\n"
                                     <<"                                The pps angle is: "<<firstPointAngle);
-                    //                ROS_INFO_STREAM("The pps angle is "<<firstPointAngle);
+                    //                RCLCPP_INFO_STREAM(rclcpp::get_logger("rfans_driver"), "The pps angle is "<<firstPointAngle);
                 }
                 lastGpsTimestamp = tmpFrameV6->gpsTimestamp;
                 if( processFrameV6G(tmpFrameV6,outCloud) ) {
-                    rosOut.publish(outCloud);
+                    rosOut->publish(outCloud);
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
             }
 #if 0
             if(data_grade == DATA_LEVEL_USER_SIMPLE && mirror_flag == MIRROR_ID_RFANS)
             {
-                tmpFrameUSERSimple =(PACKET_USER_SIMPLE_S*) (&inPack.data[0]+i*inPack.udpSize);
+                tmpFrameUSERSimple =(PACKET_USER_SIMPLE_S*) (&inPack.data[0]+i*inPack.udp_size);
                 if(processPacketUserSimple(tmpFrameUSERSimple,outCloud))
                 {
-                    rosOut.publish(outCloud);
+                    rosOut->publish(outCloud);
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
             }
 #endif
 //            else if(data_grade == DATA_LEVEL_USER && mirror_flag == MIRROR_ID_RFANS)
 //            {
-//                tmpFrameUSER =(PACKET_USER_S*)(&inPack.data[0]+i*inPack.udpSize);
+//                tmpFrameUSER =(PACKET_USER_S*)(&inPack.data[0]+i*inPack.udp_size);
 //                if(processPacketUser(tmpFrameUSER,outCloud))
 //                {
-//                    rosOut.publish(outCloud);
+//                    rosOut->publish(outCloud);
 //                    SSBufferDec::ResetPointCloud2(outCloud);
 //                }
 //            }
 #if 0
             else
             {
-                tmpFrameV6 = (RFans_UDP32FRAMEV6G_S*)(&inPack.data[0] + i*inPack.udpSize);
+                tmpFrameV6 = (RFans_UDP32FRAMEV6G_S*)(&inPack.data[0] + i*inPack.udp_size);
                 firstPointAngle = tmpFrameV6->dataBlock[0].azimuthAngle*UINTCONVERT;
                 static unsigned int lastGpsTimestamp = 0;
                 bool recordPPSAngle = recordAsPPSAngel(lastGpsTimestamp, tmpFrameV6->gpsTimestamp);
                 if (recordPPSAngle) {
-                    ROS_INFO_STREAM("The device IP is: "<<ip_address<<"\n"
+                    RCLCPP_INFO_STREAM(rclcpp::get_logger("rfans_driver"), "The device IP is: "<<ip_address<<"\n"
                                     <<"                                The pps angle is: "<<firstPointAngle);
-                    //                ROS_INFO_STREAM("The pps angle is "<<firstPointAngle);
+                    //                RCLCPP_INFO_STREAM(rclcpp::get_logger("rfans_driver"), "The pps angle is "<<firstPointAngle);
                 }
                 lastGpsTimestamp = tmpFrameV6->gpsTimestamp;
                 if( processFrameV6G(tmpFrameV6,outCloud) ) {
-                    rosOut.publish(outCloud);
+                    rosOut->publish(outCloud);
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
             }
@@ -2077,40 +2083,40 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::PointC
 
         }
 
-//    if( UDP_PACKET_SIZE_V5A == inPack.udpSize) {
-//        for( int i = 0 ; i < inPack.udpCount;i++) {
-//            tmpFrameV5 = (RFans_UDPFRAMEV5_S*)(&inPack.data[0] + i*inPack.udpSize);
+//    if( UDP_PACKET_SIZE_V5A == inPack.udp_size) {
+//        for( int i = 0 ; i < inPack.udp_count;i++) {
+//            tmpFrameV5 = (RFans_UDPFRAMEV5_S*)(&inPack.data[0] + i*inPack.udp_size);
 //            if( processFrameV5(tmpFrameV5,outCloud) ){
-//                rosOut.publish(outCloud);
+//                rosOut->publish(outCloud);
 //                SSBufferDec::ResetPointCloud2(outCloud);
 //            }
 //        }
 //    }
-//    else if(UDP_PACKET_SIZE_V6G == inPack.udpSize) {
-//        for( int i = 0 ; i < inPack.udpCount;i++) {
-//            tmpFrameV6 = (RFans_UDP32FRAMEV6G_S*)(&inPack.data[0] + i*inPack.udpSize);
+//    else if(UDP_PACKET_SIZE_V6G == inPack.udp_size) {
+//        for( int i = 0 ; i < inPack.udp_count;i++) {
+//            tmpFrameV6 = (RFans_UDP32FRAMEV6G_S*)(&inPack.data[0] + i*inPack.udp_size);
 //            firstPointAngle = tmpFrameV6->dataBlock[0].azimuthAngle*UINTCONVERT;
 //            static unsigned int lastGpsTimestamp = 0;
 //            bool recordPPSAngle = recordAsPPSAngel(lastGpsTimestamp, tmpFrameV6->gpsTimestamp);
 //            if (recordPPSAngle) {
-//                ROS_INFO_STREAM("The device IP is: "<<ip_address<<"\n"
+//                RCLCPP_INFO_STREAM(rclcpp::get_logger("rfans_driver"), "The device IP is: "<<ip_address<<"\n"
 //                                <<"                                The pps angle is: "<<firstPointAngle);
-////                ROS_INFO_STREAM("The pps angle is "<<firstPointAngle);
+////                RCLCPP_INFO_STREAM(rclcpp::get_logger("rfans_driver"), "The pps angle is "<<firstPointAngle);
 //            }
 //            lastGpsTimestamp = tmpFrameV6->gpsTimestamp;
 //            if( processFrameV6G(tmpFrameV6,outCloud) ) {
-//                rosOut.publish(outCloud);
+//                rosOut->publish(outCloud);
 //                SSBufferDec::ResetPointCloud2(outCloud);
 //            }
 //        }
 //    }
     else {
-        ROS_INFO_STREAM(" inPack.udpSize " <<inPack.udpSize );
+        RCLCPP_INFO_STREAM(rclcpp::get_logger("rfans_driver"), " inPack.udp_size " <<inPack.udp_size );
     }
     return rtn ;
 }
 
-void SSBufferDec::InitPointcloud2(sensor_msgs::PointCloud2 &initCloud) {
+void SSBufferDec::InitPointcloud2(sensor_msgs::msg::PointCloud2 &initCloud) {
     static const size_t DataSize = sizeof(rfans_driver::RfansPacket().data) / sizeof(SCDRFANS_BLOCK_S ) * sizeof(RFANS_XYZ_S) *RFANS_LASER_COUNT;
     initCloud.data.clear();
     initCloud.data.resize( DataSize); //point data
@@ -2172,18 +2178,9 @@ void SSBufferDec::InitPointcloud2(sensor_msgs::PointCloud2 &initCloud) {
     initCloud.width = 0 ;
 
 
-    //node name
-    std::string node_name = ros::this_node::getName();
-
-    std::string frame_id_str = "/world";
-    std::string frame_id_path = node_name + "/frame_id";
-    std::string ip_str = std::string("rfans_driver/") + "device_ip";
-    std::string data_level_param = std::string("rfans_driver/")+"data_level";
-    ros::param::get(frame_id_path,frame_id_str);
-    ros::param::get(ip_str,ip_address);
-    ros::param::get(data_level_param,data_level_);
-    ros::param::get("model",device_type);
-    initCloud.header.frame_id = frame_id_str;
+    // claude: ROS2 port — no ambient parameter server here. The node calls
+    //         SetFrameId/SetDeviceIp/SetDataLevel/SetDeviceModel before this.
+    initCloud.header.frame_id = s_frame_id;
 
     s_lastAngle = 0 ;
     s_lineData.resize(LINE_POINT_COUNT);
@@ -2223,11 +2220,11 @@ void SSBufferDec::InitPointcloud2(sensor_msgs::PointCloud2 &initCloud) {
 
     //  std::string hangle_path = node_name + "/laser_hangle";
     //  ros::param::get(hangle_path, hangles_str);
-    //  ROS_INFO("hable %s\n",hangles_str.c_str() );
+    //  RCLCPP_INFO(rclcpp::get_logger("rfans_driver"), "hable %s\n",hangles_str.c_str() );
     //  strToList(s_hangles, hangles_str);
 }
 
-void SSBufferDec::ResetPointCloud2(sensor_msgs::PointCloud2 &initCloud) {
+void SSBufferDec::ResetPointCloud2(sensor_msgs::msg::PointCloud2 &initCloud) {
     initCloud.width = 0;
 }
 

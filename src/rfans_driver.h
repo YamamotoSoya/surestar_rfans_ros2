@@ -6,7 +6,7 @@
 
 #ifndef _RFANS_DRIVER_H_
 #define _RFANS_DRIVER_H_
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include "ioapi.h"
 #include <stdint.h>
 
@@ -16,7 +16,8 @@ namespace rfans_driver
 class Rfans_Driver
 {
 public:
-    Rfans_Driver(ros::NodeHandle node, ros::NodeHandle nh);
+    // claude: ROS2 port — one rclcpp node replaces the ROS1 global/private NodeHandle pair
+    explicit Rfans_Driver(rclcpp::Node::SharedPtr node);
     ~Rfans_Driver();
 
     int spinOnce();
@@ -26,7 +27,9 @@ public:
 private:
     double calcReplayPacketRate();
     void configDeviceParams();
-    void setupNodeParams(ros::NodeHandle node,ros::NodeHandle nh);
+    void setupNodeParams();   // claude: reads params from node_ (ROS2 port)
+    void commandHandle(const std::shared_ptr<rfans_driver::RfansCommand::Request> req,
+                       std::shared_ptr<rfans_driver::RfansCommand::Response> res);
 
     bool worRealtime();
     int spinOnceRealtime();
@@ -44,10 +47,14 @@ private:
         int scnSpeed;
         int data_level;
         bool dual_echo;
+        bool read_once;    // claude: pcap replay options (were InputPCAP-private params)
+        bool read_fast;
+        double repeat_delay;
     } config_;
     rfans_driver::IOAPI *m_devapi;
-    ros::Publisher m_output;
-    ros::ServiceServer server_ ;
+    rclcpp::Node::SharedPtr node_;   // claude: ROS2 port
+    rclcpp::Publisher<rfans_driver::RfansPacket>::SharedPtr m_output;
+    rclcpp::Service<rfans_driver::RfansCommand>::SharedPtr server_;
     rfans_driver::RfansPacket tmpPacket;
     rfans_driver::InputPCAP *input_;
 };

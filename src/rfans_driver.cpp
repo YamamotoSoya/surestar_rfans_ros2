@@ -14,8 +14,7 @@
 #include <sys/file.h>
 
 #include "rfans_driver.h"
-#include "rfans_driver/RfansCommand.h"
-#include "rfans_driver/RfansScan.h"
+// claude: ROS2 port — RfansCommand/RfansScan aliases come via ssFrameLib.h
 
 namespace rfans_driver {
 
@@ -23,47 +22,46 @@ static const size_t packet_size = sizeof(rfans_driver::RfansPacket().data);
 static const int RFANS_PACKET_NUM = 1024 ;
 size_t packet_size_pcap = 1206;
 
-static Rfans_Driver *s_this = NULL;
-
-
 /** @brief Rfans Command Handle */
-bool CommandHandle(rfans_driver::RfansCommand::Request  &req,
-                   rfans_driver::RfansCommand::Response &res)
+// claude: ROS2 service callback — was a free function using the s_this static;
+//         as a member it reaches the device directly.
+void Rfans_Driver::commandHandle(const std::shared_ptr<rfans_driver::RfansCommand::Request> req,
+                                 std::shared_ptr<rfans_driver::RfansCommand::Response> res)
 {
-    res.status = 1;
+    res->status = 1;
 
-    ROS_INFO("request: cmd= %d , speed = %d Hz", (int)req.cmd, (int)req.speed);
-    ROS_INFO("sending back response: [%d]", (int)res.status);
+    RCLCPP_INFO(rclcpp::get_logger("rfans_driver"), "request: cmd= %d , speed = %d Hz", (int)req->cmd, (int)req->speed);
+    RCLCPP_INFO(rclcpp::get_logger("rfans_driver"), "sending back response: [%d]", (int)res->status);
 
     DEB_PROGRM_S tmpProg ;
-    tmpProg.cmdstat = (DEB_CMD_E)req.cmd;
+    tmpProg.cmdstat = (DEB_CMD_E)req->cmd;
     tmpProg.dataFormat = eFormatCalcData;
-    tmpProg.scnSpeed = req.speed;
-    if(s_this) {
-        s_this->prog_Set(tmpProg);
-    }
-    return true;
+    tmpProg.scnSpeed = req->speed;
+    prog_Set(tmpProg);
 }
 
-Rfans_Driver::Rfans_Driver(ros::NodeHandle node, ros::NodeHandle nh)
+Rfans_Driver::Rfans_Driver(rclcpp::Node::SharedPtr node)
+    : m_devapi(NULL), node_(node), input_(NULL)
 {
-    setupNodeParams(node,nh);
+    setupNodeParams();
 
-    //std::string node_name = ros::this_node::getName();//useless
-    server_ = node.advertiseService("rfans_driver/" + config_.command_path, CommandHandle);
+    using std::placeholders::_1;
+    using std::placeholders::_2;
+    server_ = node_->create_service<rfans_driver::RfansCommand>(
+        "rfans_driver/" + config_.command_path,
+        std::bind(&Rfans_Driver::commandHandle, this, _1, _2));
 
     //driver init
-    m_output = node.advertise<rfans_driver::RfansPacket>("rfans_driver/"+config_.advertise_path, RFANS_PACKET_NUM);
+    m_output = node_->create_publisher<rfans_driver::RfansPacket>("rfans_driver/"+config_.advertise_path, RFANS_PACKET_NUM);
     double packet_rate = calcReplayPacketRate();
     if (config_.simu_filepath != "") {
-        input_ = new rfans_driver::InputPCAP(nh, config_.dataport, packet_rate,
-                        config_.simu_filepath, config_.device_ip);
+        input_ = new rfans_driver::InputPCAP(config_.dataport, packet_rate,
+                        config_.simu_filepath, config_.device_ip,
+                        config_.read_once, config_.read_fast, config_.repeat_delay);
     } else {
         m_devapi = new rfans_driver::IOSocketAPI(config_.device_ip, config_.dataport, config_.dataport);
         configDeviceParams();
     }
-
-    s_this = this ;
 }
 
 Rfans_Driver::~Rfans_Driver()
@@ -94,7 +92,7 @@ int Rfans_Driver::spinOnceRealtime()
 
     rtn = m_devapi->getPacket(tmpPacket);
     if(rtn > 0) {
-        m_output.publish(tmpPacket) ;
+        m_output->publish(tmpPacket) ;   // claude: ROS2 port
     }
     return rtn ;
 }
@@ -112,7 +110,7 @@ bool Rfans_Driver::spinOnceSimu(void)
         }
     }
 
-    ROS_DEBUG("Publishing a full Rfans scan");
+    RCLCPP_DEBUG(rclcpp::get_logger("rfans_driver"), "Publishing a full Rfans scan");
     scan->header.stamp = scan->packets.back().stamp;
     scan->header.frame_id = "world";
     pkt.data.resize(scan->packets.size()*packet_size_pcap);
@@ -121,11 +119,11 @@ bool Rfans_Driver::spinOnceSimu(void)
         memcpy(&pkt.data[j*packet_size_pcap],&(scan->packets[j].data[0]),packet_size_pcap);
     }
     pkt.stamp = scan->packets.back().stamp;
-    pkt.udpCount = scan->packets.size();
-    //pkt.udpSize = sizeof(rfans_driver::Packet().data);
-    pkt.udpSize = packet_size_pcap;
-    m_output.publish(pkt);
-    memset(&pkt,0,sizeof(pkt));
+    pkt.udp_count = scan->packets.size();
+    //pkt.udp_size = sizeof(rfans_driver::Packet().data);
+    pkt.udp_size = packet_size_pcap;
+    m_output->publish(pkt);   // claude: ROS2 port
+    pkt = rfans_driver::RfansPacket();   // claude: was memset — msg has non-POD members now
     return true;
 }
 
@@ -241,18 +239,21 @@ int Rfans_Driver::datalevel_Set(DEB_PROGRM_S &program)
 
 }
 
-void Rfans_Driver::setupNodeParams(ros::NodeHandle node,ros::NodeHandle nh)
+void Rfans_Driver::setupNodeParams()
 {
-    node.param<std::string>("model",config_.device_name,"R-Fans-32");
-    nh.param<std::string>("advertise_name", config_.advertise_path, "rfans_packets");
-    nh.param<std::string>("control_name", config_.command_path, "rfans_control");
-    nh.param<int>("device_port", config_.dataport, 2014);
-    nh.param<std::string>("device_ip", config_.device_ip, "192.168.0.3");
-    nh.param<int>("rps", config_.scnSpeed, 10);
-    nh.param<std::string>("pcap", config_.simu_filepath, "");
-//    nh.param<std::string>("model", config_.device_name, "R-Fans-32");
-    nh.param<bool>("use_double_echo", config_.dual_echo, "false");
-    nh.param<int>("data_level", config_.data_level, 0);
+    // claude: ROS2 port — declare_parameter replaces the two-NodeHandle param reads
+    config_.device_name    = node_->declare_parameter<std::string>("model", "R-Fans-16");
+    config_.advertise_path = node_->declare_parameter<std::string>("advertise_name", "rfans_packets");
+    config_.command_path   = node_->declare_parameter<std::string>("control_name", "rfans_control");
+    config_.dataport       = node_->declare_parameter<int>("device_port", 2014);
+    config_.device_ip      = node_->declare_parameter<std::string>("device_ip", "192.168.0.3");
+    config_.scnSpeed       = node_->declare_parameter<int>("rps", 10);
+    config_.simu_filepath  = node_->declare_parameter<std::string>("pcap", "");
+    config_.dual_echo      = node_->declare_parameter<bool>("use_double_echo", false);
+    config_.data_level     = node_->declare_parameter<int>("data_level", 3);
+    config_.read_once      = node_->declare_parameter<bool>("read_once", false);
+    config_.read_fast      = node_->declare_parameter<bool>("read_fast", false);
+    config_.repeat_delay   = node_->declare_parameter<double>("repeat_delay", 0.0);
 }
 
 bool Rfans_Driver::worRealtime()
@@ -266,7 +267,7 @@ double Rfans_Driver::calcReplayPacketRate()
     std::string device = config_.device_name;
     int data_level = config_.data_level;
     bool dual_echo = config_.dual_echo;
-    ROS_INFO("Device: %s",device.c_str());
+    RCLCPP_INFO(rclcpp::get_logger("rfans_driver"), "Device: %s",device.c_str());
     //one second generate 640k points,and each packet have 32*12 points.
     if (device == "R-Fans-32") {
         if (((data_level == 0) || (data_level == 1)) && dual_echo) {

@@ -8,7 +8,20 @@
 #define _FRAME_LIB_H_
 #include <iostream>
 #include <string>
-#include "rfans_driver/RfansPacket.h"
+// claude: ROS2 port — rosidl-generated message headers replace ROS1 msg headers.
+//         The vendor code refers to messages as rfans_driver::RfansPacket etc.;
+//         alias those names to the generated types so 2000+ lines stay untouched.
+#include "surestar_rfans_ros2/msg/rfans_packet.hpp"
+#include "surestar_rfans_ros2/msg/rfans_scan.hpp"
+#include "surestar_rfans_ros2/msg/packet.hpp"
+#include "surestar_rfans_ros2/srv/rfans_command.hpp"
+namespace rfans_driver {
+using RfansPacket  = surestar_rfans_ros2::msg::RfansPacket;
+using RfansScan    = surestar_rfans_ros2::msg::RfansScan;
+using RfansScanPtr = surestar_rfans_ros2::msg::RfansScan::SharedPtr;
+using Packet       = surestar_rfans_ros2::msg::Packet;
+using RfansCommand = surestar_rfans_ros2::srv::RfansCommand;
+}
 
 using namespace std;
 
