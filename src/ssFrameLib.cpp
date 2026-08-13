@@ -1,4 +1,4 @@
-﻿/* -*- mode: C++ -*-
+/* -*- mode: C++ -*-
  *  All right reserved, Sure_star Coop.
  *  @Technic Support: <sdk@isurestar.com>
  *  $Id$

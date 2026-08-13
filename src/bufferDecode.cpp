@@ -1,4 +1,4 @@
-﻿#include "bufferDecode.h"
+#include "bufferDecode.h"
 #include <string.h>
 #include <cmath>
 #include <time.h>

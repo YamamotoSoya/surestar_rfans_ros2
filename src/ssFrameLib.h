@@ -103,7 +103,7 @@ const int ROMREG_MAX_COUNT = 0x7FF;
 //  0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30
 //};
 
-//////ÎïÀí±àºÅ½Ç¶ÈË³Ğò
+//////ç‰©ç†ç¼–å·è§’åº¦é¡ºåº
 //const double HANGLE_V6B_X32_0x40[] = {
 //    6.01, -4.068, 3.377, -6.713,
 //    6.01, -4.068, 3.377, -6.713,
@@ -150,7 +150,7 @@ const int ROMREG_MAX_COUNT = 0x7FF;
 //   3.0,  5.0,
 //   7.0,  9.0,  };
 
-////ÎïÀí±àºÅ½Ç¶ÈË³Ğò
+////ç‰©ç†ç¼–å·è§’åº¦é¡ºåº
 //const double HANGLE_V6_X32_0x40[] = {
 //  6.35, -3.85, 3.85, -6.35,
 //  6.35, -3.85, 3.85, -6.35,
@@ -365,7 +365,7 @@ const int UDP_PACKET_SIZE_V6G = 1206;
 const int UDP_PACKET_SIZE_DATA_LEVEL_ORI=1406;
 
 typedef struct {
-  unsigned short angle  : 16 ;          //scan angle, 0.01¡ã
+  unsigned short angle  : 16 ;          //scan angle, 0.01Â°
   unsigned short rangeOne  : 16 ;       //echo 1,  cm
   unsigned short rangeTwo  : 16 ;       //echo 2,  cm
   unsigned char  intentOne : 8 ;        //0~255
@@ -463,19 +463,19 @@ typedef enum{
 
 // data level enum type.
 typedef enum {
-    DATA_LEVEL_ORI = 0,     //0¼¶£ºÔ­Ê¼Êı¾İ
-    DATA_LEVEL_CALIB,       //1¼¶£º±ê¶¨Êı¾İ
-    DATA_LEVEL_USER,        //2¼¶£ºÓÃ»§¼¶±ğÊı¾İ£¬12bit»Ò¶È
-    DATA_LEVEL_USER_SIMPLE, //3¼¶£ºÓÃ»§¼¶±ğ¾«¼òÊı¾İ
+    DATA_LEVEL_ORI = 0,     //0çº§ï¼šåŸå§‹æ•°æ®
+    DATA_LEVEL_CALIB,       //1çº§ï¼šæ ‡å®šæ•°æ®
+    DATA_LEVEL_USER,        //2çº§ï¼šç”¨æˆ·çº§åˆ«æ•°æ®ï¼Œ12bitç°åº¦
+    DATA_LEVEL_USER_SIMPLE, //3çº§ï¼šç”¨æˆ·çº§åˆ«ç²¾ç®€æ•°æ®
 } DATA_LEVEL_E;
 
 // algorithm flag
 typedef enum {
-    ALGORITHM_ID_PREPROCESS = 0x00, //Ô¤´¦ÀíÄ£¿é
-    ALGORITHM_ID_DISTANCE = 0x10,   //¾àÀë±ê¶¨
-    ALGORITHM_ID_INTENSITY = 0x10,  //»Ò¶È±ê¶¨
-    ALGORITHM_ID_ANGLE = 0x20,      //½Ç¶È±ê¶¨
-    ALGORITHM_ID_STRETCHing = 0x30, //»Ò¶ÈÀ­Éì
+    ALGORITHM_ID_PREPROCESS = 0x00, //é¢„å¤„ç†æ¨¡å—
+    ALGORITHM_ID_DISTANCE = 0x10,   //è·ç¦»æ ‡å®š
+    ALGORITHM_ID_INTENSITY = 0x10,  //ç°åº¦æ ‡å®š
+    ALGORITHM_ID_ANGLE = 0x20,      //è§’åº¦æ ‡å®š
+    ALGORITHM_ID_STRETCHing = 0x30, //ç°åº¦æ‹‰ä¼¸
 } ALGORITHM_ID_E;
 
 
@@ -485,16 +485,16 @@ typedef enum {
     MIRROR_ID_CFANS_00 = 0x0,   //CFANS ...
     MIRROR_ID_CFANS_01 = 0x1,
     MIRROR_ID_CFANS_02 = 0x2,
-    MIRROR_ID_RFANS = 0x3,      //RFANS¾µÃæ±êÊ¶
+    MIRROR_ID_RFANS = 0x3,      //RFANSé•œé¢æ ‡è¯†
 } MIRROR_ID_E;
 
 
 // data packet id
 typedef enum {
-    PACK_ID_DUALECHO_MIX    = 0x00,   //Ë«»Ø²¨»ìºÏÊä³ö
-    PACK_ID_DUALECHO        = 0x01,   //Ë«»Ø²¨Êä³ö
-    PACK_ID_STRONG_ECHO     = 0x02,   //×îÇ¿»Ø²¨Êä³ö
-    PACK_ID_FIRST_ECHO      = 0x03,   //µÚÒ»»Ø²¨Êä³ö
+    PACK_ID_DUALECHO_MIX    = 0x00,   //åŒå›æ³¢æ··åˆè¾“å‡º
+    PACK_ID_DUALECHO        = 0x01,   //åŒå›æ³¢è¾“å‡º
+    PACK_ID_STRONG_ECHO     = 0x02,   //æœ€å¼ºå›æ³¢è¾“å‡º
+    PACK_ID_FIRST_ECHO      = 0x03,   //ç¬¬ä¸€å›æ³¢è¾“å‡º
 
 //    PACK_ID_DUAL_ECHO_MIX       = 0x01,
 //    PACK_ID_TRIPLE_ECHO         = 0x0A,
@@ -512,19 +512,19 @@ static const int POINT_NUM_CALIB = 32;
 static const int POINT_NUM_USER = 16;
 static const int POINT_NUM_USER_SIMPLE = 32;
 
-// 0¼¶Êı¾İ·â×°£º
+// 0çº§æ•°æ®å°è£…ï¼š
 typedef struct {
     unsigned short range;
     unsigned short rising_edge;
-    uint8_t intensity_pulse[3]; //{Intensity[23:12]£¬Pulse Widt[11:0]}
+    uint8_t intensity_pulse[3]; //{Intensity[23:12]ï¼ŒPulse Widt[11:0]}
 } POINT_ORI_S;
 
 typedef struct {
-    // flag ¶¨Òå
-    //	2 bit Êı¾İ·Ö¼¶
-    //	10bit Ëã·¨Ä£¿é±àºÅ
-    //	2 bit ¾µÃæ±êÊ¶
-    //	2 bit Êı¾İ´ò°ü¸ñÊ½±àºÅ
+    // flag å®šä¹‰
+    //	2 bit æ•°æ®åˆ†çº§
+    //	10bit ç®—æ³•æ¨¡å—ç¼–å·
+    //	2 bit é•œé¢æ ‡è¯†
+    //	2 bit æ•°æ®æ‰“åŒ…æ ¼å¼ç¼–å·
     unsigned short flag;
     unsigned short azimuth_angle;
     POINT_ORI_S points[POINT_NUM_ORI];
@@ -538,12 +538,12 @@ typedef struct {
     unsigned char gmReservedB;
 } PACKET_ORI_S;//1406 byte
 
-//1¼¶Êı¾İ·â×°Í¬0¼¶Êı¾İ
-//2¼¶Êı¾İ·â×°£º12bit intensity
+//1çº§æ•°æ®å°è£…åŒ0çº§æ•°æ®
+//2çº§æ•°æ®å°è£…ï¼š12bit intensity
 typedef struct {
     uint16_t range1;
     uint16_t range2;
-    uint8_t intents[3]; //{intensity1[23:12]£¬intensity2[11:0]}
+    uint8_t intents[3]; //{intensity1[23:12]ï¼Œintensity2[11:0]}
 } POINT_USER_S;           // contains 2 point
 
 typedef struct {
@@ -560,7 +560,7 @@ typedef struct {
     unsigned char gmReservedB;
 } PACKET_USER_S;//1206byte
 
-//3¼¶Êı¾İ·â×°£º
+//3çº§æ•°æ®å°è£…ï¼š
 typedef struct {
     uint16_t range;
     uint8_t intensity;
