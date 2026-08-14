@@ -15,8 +15,15 @@ int main(int argc, char** argv)
     auto node = std::make_shared<rclcpp::Node>("rfans_driver");
     auto driver = std::make_shared<rfans_driver::Rfans_Driver>(node);
 
-    while( rclcpp::ok() && (driver->spinOnce()))
+    // claude: the vendor loop exited whenever spinOnce() returned 0, which in
+    //         realtime mode happens after ~1 s of device silence (power cycle,
+    //         cable bump) — a robot driver must survive that. Only pcap replay
+    //         (EOF) may end the loop.
+    const bool realtime = driver->isRealtime();
+    while( rclcpp::ok() )
     {
+        int got = driver->spinOnce();
+        if (!got && !realtime) break;   // pcap end-of-file
         rclcpp::spin_some(node);
     }
 

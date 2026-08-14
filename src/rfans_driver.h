@@ -21,6 +21,7 @@ public:
     ~Rfans_Driver();
 
     int spinOnce();
+    bool isRealtime() { return worRealtime(); }   // claude: lets main keep looping on device silence
     int prog_Set(DEB_PROGRM_S &program);
     int datalevel_Set(DEB_PROGRM_S &program);
 

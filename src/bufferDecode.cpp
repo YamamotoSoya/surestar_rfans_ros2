@@ -1,5 +1,6 @@
 #include "bufferDecode.h"
 #include <string.h>
+#include <limits>   // claude: publishCloud helper
 #include <cmath>
 #include <time.h>
 #include <stdio.h>
@@ -1944,6 +1945,49 @@ void SSBufferDec::reset()
     m_udpCount = 0 ;
 }
 
+
+// claude: publish-time fixups (ROS2 port, 2026-08-14):
+//   1) per-point time: the vendor stores ABSOLUTE device-clock microseconds in a
+//      float32 ("timeflag"). Consumers (GLIM) expect seconds RELATIVE to scan
+//      start, in a field named "time" (renamed in InitPointcloud2). Convert here.
+//      Note: float32 already quantized the absolute us to ~256 us at store time —
+//      acceptable for now, refactor to double if it ever matters.
+//   2) header.stamp: the vendor stamps now() at scan END. Consumers reconstruct a
+//      point's absolute time as stamp + time, so anchor the stamp at scan START
+//      by rewinding the measured span (same fix as StarROS2, 2026-08-11).
+//      GPS mode (use_gps) keeps the vendor GPS stamp untouched.
+//   Device-clock rollover mid-scan makes the span explode; degrade gracefully by
+//   zeroing the time field for that one scan.
+static void publishCloud(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr &rosOut,
+                         sensor_msgs::msg::PointCloud2 &cloud)
+{
+    static const int TIME_OFF = 20;   // "time" offset inside RFANS_XYZ_S
+    const size_t n = cloud.width;
+    float tmin = std::numeric_limits<float>::max();
+    float tmax = -std::numeric_limits<float>::max();
+    for (size_t i = 0; i < n; ++i) {
+        float t;
+        memcpy(&t, &cloud.data[i*cloud.point_step + TIME_OFF], 4);
+        if (t <= 0.0f || std::isnan(t)) continue;   // NaN padding carries time=0
+        if (t < tmin) tmin = t;
+        if (t > tmax) tmax = t;
+    }
+    if (tmax > tmin) {
+        const bool sane = (tmax - tmin) * 1e-6 < 1.0;   // one rotation is ~0.05-0.2 s
+        for (size_t i = 0; i < n; ++i) {
+            float t;
+            memcpy(&t, &cloud.data[i*cloud.point_step + TIME_OFF], 4);
+            t = (sane && t > 0.0f && !std::isnan(t)) ? (t - tmin) * 1e-6f : 0.0f;
+            memcpy(&cloud.data[i*cloud.point_step + TIME_OFF], &t, 4);
+        }
+        if (!use_gps && sane) {
+            double span = (tmax - tmin) * 1e-6;
+            cloud.header.stamp = rclcpp::Clock().now() - rclcpp::Duration::from_seconds(span);
+        }
+    }
+    rosOut->publish(cloud);
+}
+
 int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::msg::PointCloud2 &outCloud , rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr rosOut, DEVICE_TYPE_E deviceType)   // claude: publisher SharedPtr (ROS2 port)
 {
     int rtn =0, updateflag = 0;
@@ -1983,7 +2027,7 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::msg::P
 //                    timeval tval_begin;
 //                   gettimeofday(&tval_begin, NULL);
 //                     printf("xxs: %ld, us: %06ld\n", tval_begin.tv_sec, tval_begin.tv_usec);
-                    rosOut->publish(outCloud);
+                    publishCloud(rosOut, outCloud);   // claude: time-field + stamp fixup
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
 //            }
@@ -2007,7 +2051,7 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::msg::P
                 tmpFrameUSER =(PACKET_USER_S*)(&inPack.data[0]+i*inPack.udp_size);
                 if(processPacketUser(tmpFrameUSER,outCloud))
                 {
-                    rosOut->publish(outCloud);
+                    publishCloud(rosOut, outCloud);   // claude: time-field + stamp fixup
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
             }
@@ -2017,7 +2061,7 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::msg::P
                 tmpFrameUSERSimple =(PACKET_USER_SIMPLE_S*) (&inPack.data[0]+i*inPack.udp_size);
                 if(processPacketUserSimple(tmpFrameUSERSimple,outCloud))
                 {
-                    rosOut->publish(outCloud);
+                    publishCloud(rosOut, outCloud);   // claude: time-field + stamp fixup
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
             }
@@ -2035,7 +2079,7 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::msg::P
                 }
                 lastGpsTimestamp = tmpFrameV6->gpsTimestamp;
                 if( processFrameV6G(tmpFrameV6,outCloud) ) {
-                    rosOut->publish(outCloud);
+                    publishCloud(rosOut, outCloud);   // claude: time-field + stamp fixup
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
             }
@@ -2045,7 +2089,7 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::msg::P
                 tmpFrameUSERSimple =(PACKET_USER_SIMPLE_S*) (&inPack.data[0]+i*inPack.udp_size);
                 if(processPacketUserSimple(tmpFrameUSERSimple,outCloud))
                 {
-                    rosOut->publish(outCloud);
+                    publishCloud(rosOut, outCloud);   // claude: time-field + stamp fixup
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
             }
@@ -2055,7 +2099,7 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::msg::P
 //                tmpFrameUSER =(PACKET_USER_S*)(&inPack.data[0]+i*inPack.udp_size);
 //                if(processPacketUser(tmpFrameUSER,outCloud))
 //                {
-//                    rosOut->publish(outCloud);
+//                    publishCloud(rosOut, outCloud);   // claude: time-field + stamp fixup
 //                    SSBufferDec::ResetPointCloud2(outCloud);
 //                }
 //            }
@@ -2073,7 +2117,7 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::msg::P
                 }
                 lastGpsTimestamp = tmpFrameV6->gpsTimestamp;
                 if( processFrameV6G(tmpFrameV6,outCloud) ) {
-                    rosOut->publish(outCloud);
+                    publishCloud(rosOut, outCloud);   // claude: time-field + stamp fixup
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
             }
@@ -2087,7 +2131,7 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::msg::P
 //        for( int i = 0 ; i < inPack.udp_count;i++) {
 //            tmpFrameV5 = (RFans_UDPFRAMEV5_S*)(&inPack.data[0] + i*inPack.udp_size);
 //            if( processFrameV5(tmpFrameV5,outCloud) ){
-//                rosOut->publish(outCloud);
+//                publishCloud(rosOut, outCloud);   // claude: time-field + stamp fixup
 //                SSBufferDec::ResetPointCloud2(outCloud);
 //            }
 //        }
@@ -2105,7 +2149,7 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::msg::P
 //            }
 //            lastGpsTimestamp = tmpFrameV6->gpsTimestamp;
 //            if( processFrameV6G(tmpFrameV6,outCloud) ) {
-//                rosOut->publish(outCloud);
+//                publishCloud(rosOut, outCloud);   // claude: time-field + stamp fixup
 //                SSBufferDec::ResetPointCloud2(outCloud);
 //            }
 //        }
@@ -2153,7 +2197,7 @@ void SSBufferDec::InitPointcloud2(sensor_msgs::msg::PointCloud2 &initCloud) {
             tmpOffset += 4;
             break;
         case 5:
-            initCloud.fields[i].name = "timeflag" ;
+            initCloud.fields[i].name = "time" ;   // claude: was "timeflag" — GLIM only recognizes t/time/time_stamp/timestamp
             initCloud.fields[i].datatype = 7u;
             tmpOffset += 4;
             break;
@@ -2165,7 +2209,7 @@ void SSBufferDec::InitPointcloud2(sensor_msgs::msg::PointCloud2 &initCloud) {
         case 7:
             initCloud.fields[i].name = "mirrorid" ;
             initCloud.fields[i].datatype = 2u;
-            tmpOffset += 1;
+            tmpOffset += 4;   // claude: vendor bug — hangle is a 4-byte float, so mirrorid sits at 28, not 25
             break;
 
         }
