@@ -242,6 +242,11 @@ int main ( int argc , char ** argv )
         SSBufferDec::setSaveXYZ(false);
     }
 
+    // claude: measured vertical angles (deg, laserid 0..15 order). Empty = vendor
+    //         table. Fill after re-calibrating with THIS driver's clean output.
+    setVAngleOverride(node->declare_parameter<std::vector<double>>(
+        "vangle_override", std::vector<double>{}));
+
     // claude: push config into the decoder, then build the cloud template
     //         (was ros::param::get inside InitPointcloud2)
     SSBufferDec::SetFrameId(node->declare_parameter<std::string>("frame_id", "world"));

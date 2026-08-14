@@ -388,6 +388,9 @@ extern double mirrorVector[4][3];
 extern double m_anglePara_32[30];
 extern std::vector<float> s_reviseangles_32;
 int calcXyz(unsigned char flag,float &mtRange, float &mtAngle, RFANS_XYZ_S &outXyz);
+// claude: measured vertical-angle override for the 16G tables (0x57/0x5C).
+//         16 values in degrees, laserid order; empty = use the vendor table.
+void setVAngleOverride(const std::vector<double> &deg16);
 int calcCFansCoor(float range ,float angle ,int index,int laserID, RFANS_XYZ_S &outXyz);
 int calcCFansXYZ_32(float range, float angle,int index, RFANS_XYZ_S &outXyz);
 int initCFansPara(std::string reviseAngle);

@@ -84,6 +84,19 @@ inline void HomogenizationProcess(double *tmpXyz,float range, int index, int las
     tmpXyz[1] = tmpY;
     tmpXyz[2] = tmpZ;
 }
+// claude: optional measured vertical angles (see calculation.h)
+#include <vector>
+static std::vector<double> s_vangle_override;
+void setVAngleOverride(const std::vector<double> &deg16)
+{
+    if (deg16.empty() || deg16.size() == 16) s_vangle_override = deg16;
+}
+static inline double vangle16G(int laserid)
+{
+    return s_vangle_override.size() == 16 ? s_vangle_override[laserid]
+                                          : VAngle_V6B_16G[laserid];
+}
+
 int calcXyz(unsigned char flag, float &mtRange, float &mtAngle, RFANS_XYZ_S &outXyz)
 {
     int rtn = 1;
@@ -210,7 +223,7 @@ int calcXyz(unsigned char flag, float &mtRange, float &mtAngle, RFANS_XYZ_S &out
         outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
                     outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
         mtAngle += HANGLE_V6BC_16G_0x57[outXyz.laserid];
-        tmptheta = VAngle_V6B_16G[outXyz.laserid] * M_PI / 180.0;
+        tmptheta = vangle16G(outXyz.laserid) * M_PI / 180.0;   // claude: override-aware
         break;
     case RFANS_PRODUCT_MODEL_V6BC_16M_0X58:
         outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
@@ -238,7 +251,7 @@ int calcXyz(unsigned char flag, float &mtRange, float &mtAngle, RFANS_XYZ_S &out
         outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
                     outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
         mtAngle += HANGLE_V6BC_16G_0x57[outXyz.laserid];
-        tmptheta = VAngle_V6B_16G[outXyz.laserid]* M_PI / 180.0;
+        tmptheta = vangle16G(outXyz.laserid)* M_PI / 180.0;   // claude: override-aware
         break;
 
     }
